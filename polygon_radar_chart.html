@@ -1,0 +1,42 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>正多角形レーダーチャート</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:20px;background:#f5f7fa;color:#20242b;font-family:system-ui,sans-serif}main{max-width:1100px;margin:auto}h1{font-size:1.7rem}.sub,.note{color:#667080;font-size:.9rem;line-height:1.6}.layout{display:grid;grid-template-columns:1fr 1.15fr;gap:16px}.panel{background:white;border:1px solid #e0e5eb;border-radius:15px;padding:17px;min-width:0}h2{font-size:1.1rem;margin:0 0 14px}.settings{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field label{display:block;font-size:.85rem;margin-bottom:5px;color:#596575}.field input{width:100%;padding:9px;border:1px solid #cbd3dd;border-radius:8px;font:inherit}.field input[type=color]{height:42px;padding:3px}.full{grid-column:1/-1}table{width:100%;border-collapse:collapse}td,th{padding:8px 5px;border-bottom:1px solid #edf0f3;text-align:left}th{font-size:.85rem;color:#687282}td input{width:100%;min-width:0;padding:8px;border:1px solid #cbd3dd;border-radius:8px;font:inherit}.num{max-width:105px}button{border:0;border-radius:9px;padding:10px 12px;font:inherit;font-weight:600;background:#e9eef5;cursor:pointer}button.primary{background:#245edb;color:white}button.danger{background:#fff0f0;color:#a52b2b}.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px}.chartwrap{display:grid;place-items:center;min-height:300px}canvas{width:100%;max-width:600px;height:auto;aspect-ratio:1}.status{font-size:.85rem;color:#34734a;margin-top:10px}@media(max-width:760px){body{padding:12px}.layout{grid-template-columns:1fr}}
+</style></head><body><main>
+<h1>正多角形データ レーダーチャート</h1><p class="sub">入力・設定を変更するとグラフに自動反映されます。</p>
+<div class="layout"><section class="panel">
+<h2>グラフ設定</h2><div class="settings">
+<div class="field full"><label for="title">グラフに表示する文字（タイトル）</label><input id="title" type="text"></div>
+<div class="field"><label for="step">目盛りの間隔（例：10・20・30）</label><input id="step" type="number" min=".01" step="any"></div>
+<div class="field"><label for="levels">目盛りの段数</label><input id="levels" type="number" min="1" max="20" step="1"></div>
+<div class="field"><label for="textColor">文字の色</label><input id="textColor" type="color"></div>
+<div class="field"><label for="lineColor">レーダー線・点の色</label><input id="lineColor" type="color"></div>
+<div class="field"><label for="fillColor">レーダー内側の色</label><input id="fillColor" type="color"></div>
+<div class="field"><label for="gridColor">目盛り線の色</label><input id="gridColor" type="color"></div></div>
+<h2 style="margin-top:20px">データ入力</h2><table><thead><tr><th>項目名</th><th>数値</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+<div class="actions"><button class="primary" id="add">＋ 項目を追加</button><button id="reset">初期設定に戻す</button></div>
+<p class="note">数値・項目名・色・目盛り間隔は自由に変更できます。入力内容は各自のブラウザに個別保存されます。</p><div class="status" id="status">自動保存されます。</div>
+</section><section class="panel"><h2 id="previewTitle">正多角形データ比較</h2><div class="chartwrap"><canvas id="chart" width="800" height="800"></canvas></div>
+<div class="actions"><button class="primary" id="png">PNG画像をダウンロード</button><button id="csv">CSVデータをダウンロード</button></div>
+<p class="note">目盛り間隔×段数を基本の最大値とし、入力値が超えた場合は最大値を自動拡張します。</p></section></div>
+<p class="note">共有URLを開いた人は、それぞれ自分のブラウザ内で個別に編集できます。他の人のデータは上書きされません。</p>
+</main><script>
+const KEY='polygon-radar-v2',defaults={title:'正多角形データ比較',step:10,levels:5,textColor:'#252b34',lineColor:'#2464cf',fillColor:'#6b9bea',gridColor:'#dfe5ec',data:[['正三角形',10],['正四角形',20],['正五角形',35],['正六角形',50],['正七角形',65]]};
+let s;try{s={...defaults,...JSON.parse(localStorage.getItem(KEY)||'{}')};if(!Array.isArray(s.data))s.data=defaults.data.map(x=>[...x]);}catch(e){s={...defaults,data:defaults.data.map(x=>[...x])};}
+const $=id=>document.getElementById(id),canvas=$('chart'),ctx=canvas.getContext('2d'),fields=['title','step','levels','textColor','lineColor','fillColor','gridColor'];
+function save(){localStorage.setItem(KEY,JSON.stringify(s));$('status').textContent='保存済み（このブラウザ内）';}
+fields.forEach(k=>{$(k).value=s[k];$(k).addEventListener('input',()=>{s[k]=k==='step'?Math.max(.01,+$(k).value||.01):k==='levels'?Math.min(20,Math.max(1,Math.round(+$(k).value||1))):$(k).value;$('previewTitle').textContent=s.title;save();draw();});});
+function table(){const body=$('rows');body.innerHTML='';s.data.forEach((d,i)=>{let tr=document.createElement('tr'),a=document.createElement('td'),b=document.createElement('td'),c=document.createElement('td'),name=document.createElement('input'),val=document.createElement('input'),del=document.createElement('button');name.value=d[0];name.setAttribute('aria-label','項目名');name.oninput=()=>{s.data[i][0]=name.value;save();draw();};val.type='number';val.min='0';val.step='any';val.className='num';val.value=d[1];val.setAttribute('aria-label','数値');val.oninput=()=>{s.data[i][1]=Math.max(0,+val.value||0);save();draw();};del.textContent='削除';del.className='danger';del.onclick=()=>{if(s.data.length<=3)return alert('3項目以上必要です');s.data.splice(i,1);save();render();};a.append(name);b.append(val);c.append(del);tr.append(a,b,c);body.append(tr);});}
+function draw(){let n=s.data.length,cx=400,cy=400,R=265,step=Math.max(.01,+s.step||10),levels=Math.min(20,Math.max(1,+s.levels||5)),max=Math.max(step*levels,...s.data.map(d=>+d[1]||0));max=Math.ceil(max/step)*step;let ang=i=>-Math.PI/2+i*2*Math.PI/n;
+ctx.clearRect(0,0,800,800);ctx.fillStyle='#fff';ctx.fillRect(0,0,800,800);if(n<3)return;
+ctx.strokeStyle=s.gridColor;ctx.lineWidth=1.5;
+for(let l=1;l<=levels;l++){let r=R*step*l/max;ctx.beginPath();s.data.forEach((d,i)=>{let x=cx+Math.cos(ang(i))*r,y=cy+Math.sin(ang(i))*r;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.closePath();ctx.stroke();ctx.fillStyle=s.textColor;ctx.font='14px sans-serif';ctx.textAlign='left';ctx.fillText(String(step*l),cx+5,cy-r+4);}
+s.data.forEach((d,i)=>{ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(ang(i))*R,cy+Math.sin(ang(i))*R);ctx.stroke();});
+ctx.beginPath();s.data.forEach((d,i)=>{let r=R*(+d[1]||0)/max,x=cx+Math.cos(ang(i))*r,y=cy+Math.sin(ang(i))*r;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.closePath();ctx.fillStyle=s.fillColor+'55';ctx.strokeStyle=s.lineColor;ctx.lineWidth=4;ctx.fill();ctx.stroke();
+s.data.forEach((d,i)=>{let a=ang(i),r=R*(+d[1]||0)/max,x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;ctx.beginPath();ctx.arc(x,y,7,0,Math.PI*2);ctx.fillStyle=s.lineColor;ctx.fill();let lx=cx+Math.cos(a)*(R+48),ly=cy+Math.sin(a)*(R+48);ctx.fillStyle=s.textColor;ctx.font='bold 17px sans-serif';ctx.textAlign=Math.cos(a)>.25?'left':Math.cos(a)<-.25?'right':'center';ctx.textBaseline=Math.sin(a)>.25?'top':Math.sin(a)<-.25?'bottom':'middle';ctx.fillText(d[0]||`項目${i+1}`,lx,ly);ctx.font='14px sans-serif';ctx.fillText(String(d[1]??0),lx,ly+20);});}
+function render(){table();$('previewTitle').textContent=s.title;draw();}
+$('add').onclick=()=>{s.data.push([`項目${s.data.length+1}`,0]);save();render();};
+$('reset').onclick=()=>{if(confirm('初期設定に戻しますか？')){s={...defaults,data:defaults.data.map(x=>[...x])};fields.forEach(k=>$(k).value=s[k]);save();render();}};
+$('png').onclick=()=>{let a=document.createElement('a');a.download=(s.title||'レーダーチャート')+'.png';a.href=canvas.toDataURL('image/png');a.click();};
+$('csv').onclick=()=>{let csv='\ufeff'+[['項目','数値'],...s.data].map(row=>row.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\r\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='正多角形データ.csv';a.click();URL.revokeObjectURL(a.href);};
+render();
+</script></body></html>
